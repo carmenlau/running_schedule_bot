@@ -148,4 +148,4 @@ def process_query(message):
 
     bot.reply_to(message, result_text)
 
-bot.polling()
+bot.polling(none_stop=False, interval=0, timeout=20)
