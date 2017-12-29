@@ -9,6 +9,7 @@ import logging
 log = logging.getLogger(__name__)
 
 bot = telebot.TeleBot(os.environ.get('API_KEY'))
+checking_dict = {}
 schedule_dict = {}
 schedule = json.loads(open("output/488_201712.json", "r").read())
 
@@ -53,12 +54,16 @@ def send_welcome(message):
 
 @bot.message_handler(commands=['check'])
 def start_checking(message):
-    today = datetime.date.today().strftime('%Y-%m-%d')
+    chat_id = message.chat.id
+    checking_dict[chat_id] = {}
 
-    # load data
-    if today not in schedule_dict:
+    # if tmr is not in schedule_dict, load data
+    date = datetime.date.today() + datetime.timedelta(days=1)
+    date_str = date.strftime('%Y-%m-%d')
+    if date_str not in schedule_dict:
         load_schedule_to_dict()
 
+    today = datetime.date.today().strftime('%Y-%m-%d')
     districts_set = schedule_dict[today]['district']
 
     districts = [d['district'] for d in districts_data if d['district'] in districts_set]
@@ -95,19 +100,25 @@ def process_district(message):
     # print(places)
     markup.add(*places)
     msg = bot.reply_to(message, '選擇運動場', reply_markup=markup)
-    bot.register_next_step_handler(msg, process_query)
-    # bot.register_next_step_handler(msg, process_area)
+    bot.register_next_step_handler(msg, process_area)
 
-# def process_area(message):
-#     today = datetime.date.today().strftime('%Y-%m-%d')
-#     markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
-#     markup.add(*["今日", "今星期", "兩星期"])
-#     msg = bot.reply_to(message, '選擇時間', reply_markup=markup)
-#     bot.register_next_step_handler(msg, process_query)
+def process_area(message):
+    # save place
+    place = message.text
+
+    chat_id = message.chat.id
+    checking_dict[chat_id]['place'] = place
+
+    today = datetime.date.today().strftime('%Y-%m-%d')
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+    markup.add(*["今日", "明天"])
+    msg = bot.reply_to(message, '選擇時間', reply_markup=markup)
+    bot.register_next_step_handler(msg, process_query)
 
 
 def process_query(message):
-    place = message.text
+    chat_id = message.chat.id
+    place = checking_dict[chat_id]['place']
     pid = get_id_by_place_name(place)
 
     if pid is None:
@@ -115,8 +126,16 @@ def process_query(message):
         bot.reply_to(message, "沒有數據")
         return
 
-    today = datetime.date.today().strftime('%Y-%m-%d')
-    schedule = schedule_dict[today]['schedule'].get(pid)
+    date_option = message.text
+    # default is today
+    date_str = datetime.date.today().strftime('%Y-%m-%d')
+
+    if date_option == '明天':
+        date = datetime.date.today() + datetime.timedelta(days=1)
+        date_str = date.strftime('%Y-%m-%d')
+
+    print(date_str)
+    schedule = schedule_dict[date_str]['schedule'].get(pid)
 
     if schedule is None:
         log.error('Cannot found schedule')
