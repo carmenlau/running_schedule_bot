@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 bot = telebot.TeleBot(os.environ.get('API_KEY'))
 checking_dict = {}
 schedule_dict = {}
-schedule = json.loads(open("output/488_201712.json", "r").read())
+schedule = json.loads(open("output/all.json", "r").read())
 
 
 def get_district_and_place_by_id(pid):
